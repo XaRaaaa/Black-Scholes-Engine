@@ -1,0 +1,39 @@
+:root {
+  --ink: #222222;
+  --muted: #666666;
+  --accent: #0f766e;
+  --panel: #ffffff;
+  --bg: #f7f7f8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  color: var(--ink);
+  background: var(--bg);
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.hero { display:flex; gap: 16px; align-items:center; }
+
+.panel {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+.chart { width:100%; height:auto; }
+
+/* export button and advanced styling will be added in Day 4 */
