@@ -1,4 +1,4 @@
-:root {
+.root {
   --ink: #1b1b1a;
   --muted: #5f5b55;
   --accent: #0f766e;
@@ -20,7 +20,8 @@ body {
   margin: 0;
   font-family: "AlrightSansLT-Regular-1v7", sans-serif;
   color: var(--ink);
-  background: radial-gradient(circle at top left, #ffe7cc 0%, transparent 45%),
+  background:
+    radial-gradient(circle at top left, #ffe7cc 0%, transparent 45%),
     radial-gradient(circle at 80% 20%, #d8f2ea 0%, transparent 55%),
     linear-gradient(130deg, var(--bg), var(--bg-alt));
   min-height: 100vh;
@@ -73,6 +74,15 @@ body {
   animation: floatIn 0.6s ease;
 }
 
+.hero-label-row,
+.header-title,
+.stat-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .hero-label {
   text-transform: uppercase;
   font-size: 0.7rem;
@@ -98,6 +108,10 @@ body {
   box-shadow: 0 16px 32px var(--shadow);
   backdrop-filter: blur(18px);
   animation: floatIn 0.6s ease;
+}
+
+.contract-panel {
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(196, 100, 59, 0.08)), var(--panel);
 }
 
 .panel-header {
@@ -127,12 +141,50 @@ body {
   gap: 16px;
 }
 
+.contract-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.contract-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  display: grid;
+  gap: 6px;
+  box-shadow: 0 10px 24px rgba(22, 20, 15, 0.06);
+}
+
+.contract-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.contract-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.contract-meta {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
 .field {
   display: grid;
   gap: 6px;
 }
 
 .field label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 0.85rem;
   color: var(--muted);
 }
@@ -185,6 +237,29 @@ body {
   background: rgba(15, 118, 110, 0.12);
   color: var(--accent-strong);
   font-size: 0.8rem;
+}
+
+.export-button {
+  padding: 10px 14px;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.16), rgba(196, 100, 59, 0.16));
+  color: var(--accent-strong);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.export-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(22, 20, 15, 0.08);
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.2), rgba(196, 100, 59, 0.2));
+}
+
+.export-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .chart-panel {
@@ -244,6 +319,11 @@ body {
   font-weight: 600;
 }
 
+.chart-note {
+  font-size: 0.75rem;
+  fill: var(--muted);
+}
+
 .chart-overlay {
   fill: transparent;
 }
@@ -256,6 +336,99 @@ body {
   font-size: 0.8rem;
   fill: var(--ink);
   font-weight: 600;
+}
+
+.chart-empty {
+  fill: var(--muted);
+  font-size: 0.95rem;
+}
+
+.info-badge {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(27, 27, 26, 0.16);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--accent-strong);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  box-shadow: 0 4px 10px rgba(22, 20, 15, 0.08);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.info-badge:hover {
+  transform: translateY(-1px);
+  background: #fff;
+}
+
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 700px) {
+  .app {
+    padding: 32px 18px 60px;
+  }
+
+  .hero-card {
+    order: -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.compare-panel,
+.share-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.compare-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.compare-empty,
+.share-note {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.share-note {
+  font-size: 0.92rem;
+}
+
+.chart-controls .export-button + .export-button {
+  margin-left: 0;
 }
 
 .chart-empty {

@@ -54,6 +54,15 @@ export default function HistoricalChart({ data, title }) {
       .nice()
       .range([height - margin.bottom, margin.top]);
 
+    const area = d3
+      .area()
+      .x((d) => x(d.date))
+      .y0(height - margin.bottom)
+      .y1((d) => y(d.close))
+      .curve(d3.curveMonotoneX);
+
+    const formatTick = d3.timeFormat("%b %Y");
+
     const grid = svg.append("g").attr("class", "chart-grid");
     grid
       .append("g")
@@ -82,6 +91,25 @@ export default function HistoricalChart({ data, title }) {
       .y((d) => y(d.close))
       .curve(d3.curveMonotoneX);
 
+    const defs = svg.append("defs");
+    const gradient = defs
+      .append("linearGradient")
+      .attr("id", "history-area-gradient")
+      .attr("x1", "0%")
+      .attr("x2", "0%")
+      .attr("y1", "0%")
+      .attr("y2", "100%");
+
+    gradient.append("stop").attr("offset", "0%").attr("stop-color", "#0f766e").attr("stop-opacity", 0.26);
+    gradient.append("stop").attr("offset", "100%").attr("stop-color", "#0f766e").attr("stop-opacity", 0.02);
+
+    svg
+      .append("path")
+      .datum(parsedData)
+      .attr("class", "chart-area")
+      .attr("d", area)
+      .attr("fill", "url(#history-area-gradient)");
+
     svg
       .append("path")
       .datum(parsedData)
@@ -92,7 +120,7 @@ export default function HistoricalChart({ data, title }) {
       .append("g")
       .attr("class", "axis")
       .attr("transform", `translate(0,${height - margin.bottom})`)
-      .call(d3.axisBottom(x).ticks(5));
+      .call(d3.axisBottom(x).ticks(8).tickFormat(formatTick));
 
     svg
       .append("g")
@@ -106,6 +134,14 @@ export default function HistoricalChart({ data, title }) {
       .attr("x", margin.left)
       .attr("y", 18)
       .text(title);
+
+    svg
+      .append("text")
+      .attr("class", "chart-note")
+      .attr("x", width - margin.right)
+      .attr("y", 18)
+      .attr("text-anchor", "end")
+      .text("Monthly closes");
 
     const focus = svg.append("g").attr("class", "chart-focus").style("display", "none");
     focus.append("circle").attr("r", 4);

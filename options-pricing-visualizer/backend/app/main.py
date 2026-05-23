@@ -2,6 +2,7 @@ import json
 import math
 import os
 import statistics
+from datetime import date as current_date, timedelta
 from typing import List, Optional
 from urllib.error import URLError
 from urllib.parse import urlencode
@@ -11,6 +12,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import jax.numpy as jnp
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from .bs import SUPPORTED_GREEKS, price_and_greeks
 
@@ -42,54 +46,60 @@ class OptionsParams(BaseModel):
     expiration: Optional[str] = None
 
 
-def _fetch_alpha_vantage_history(symbol: str, outputsize: str) -> dict[str, object]:
-    api_key = os.getenv("ALPHAVANTAGE_API_KEY")
+def _fetch_polygon_history(symbol: str, outputsize: str) -> dict[str, object]:
+    api_key = os.getenv("POLYGON_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=503,
-            detail="ALPHAVANTAGE_API_KEY is not set on the backend",
+            detail="POLYGON_API_KEY is not set on the backend",
         )
+
+    days_back = 120 if outputsize == "compact" else 730
+    end_date = current_date.today()
+    start_date = end_date - timedelta(days=days_back)
 
     query = urlencode(
         {
-            "function": "TIME_SERIES_DAILY_ADJUSTED",
-            "symbol": symbol,
-            "outputsize": outputsize,
-            "apikey": api_key,
+            "adjusted": "true",
+            "sort": "asc",
+            "limit": 50000,
+            "apiKey": api_key,
         }
     )
     request = Request(
-        f"https://www.alphavantage.co/query?{query}",
-        headers={"User-Agent": "Mozilla/5.0"},
+        f"https://api.polygon.io/v2/aggs/ticker/{symbol.upper()}/range/1/day/{start_date.isoformat()}/{end_date.isoformat()}?{query}",
+        headers={"Accept": "application/json"},
     )
 
     try:
         with urlopen(request, timeout=15) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except URLError as exc:
-        raise HTTPException(status_code=502, detail="Alpha Vantage request failed") from exc
+        raise HTTPException(status_code=502, detail="Polygon request failed") from exc
 
-    if "Error Message" in payload:
-        raise HTTPException(status_code=400, detail=payload["Error Message"])
-    if "Note" in payload:
-        raise HTTPException(status_code=429, detail=payload["Note"])
+    if payload.get("status") == "ERROR":
+        raise HTTPException(status_code=400, detail=payload.get("error", "Polygon returned an error"))
 
-    series = payload.get("Time Series (Daily)")
-    if not isinstance(series, dict):
-        raise HTTPException(status_code=502, detail="Alpha Vantage returned no daily series")
+    series = payload.get("results")
+    if not isinstance(series, list):
+        raise HTTPException(status_code=502, detail="Polygon returned no daily series")
 
     points = []
-    for date, values in sorted(series.items()):
+    for item in series:
         points.append(
             {
-                "date": date,
-                "close": float(values["4. close"]),
-                "adjusted_close": float(values["5. adjusted close"]),
-                "volume": float(values["6. volume"]),
+                "date": current_date.fromtimestamp(item["t"] / 1000).isoformat(),
+                "close": float(item.get("c", 0) or 0),
+                "adjusted_close": float(item.get("c", 0) or 0),
+                "volume": float(item.get("v", 0) or 0),
             }
         )
 
-    meta = payload.get("Meta Data", {})
+    meta = {
+        "ticker": payload.get("ticker", symbol.upper()),
+        "adjusted": True,
+        "count": payload.get("count", len(points)),
+    }
     result = {
         "symbol": symbol.upper(),
         "meta": meta,
@@ -137,53 +147,72 @@ def _realized_vol_from_points(points: List[dict], window: int = 30) -> Optional[
     return vol_annual
 
 
-def _fetch_tradier_options(symbol: str, expiration: Optional[str] = None) -> dict:
-    token = os.getenv("TRADIER_TOKEN")
-    if not token:
-        raise HTTPException(status_code=503, detail="TRADIER_TOKEN is not set on the backend")
+def _safe_float(value, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
-    params = {"symbol": symbol}
+
+def _fetch_polygon_options(symbol: str, expiration: Optional[str] = None) -> dict:
+    api_key = os.getenv("POLYGON_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="POLYGON_API_KEY is not set on the backend")
+
+    params = {
+        "apiKey": api_key,
+        "limit": 250,
+    }
     if expiration:
-        params["expiration"] = expiration
+        params["expiration_date"] = expiration
 
     query = urlencode(params)
-    url = f"https://api.tradier.com/v1/markets/options/chains?{query}"
-    req = Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
+    url = f"https://api.polygon.io/v3/snapshot/options/{symbol.upper()}?{query}"
 
     try:
-        with urlopen(req, timeout=15) as resp:
+        with urlopen(Request(url, headers={"Accept": "application/json"}), timeout=15) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
     except URLError as exc:
-        raise HTTPException(status_code=502, detail="Tradier request failed") from exc
+        raise HTTPException(status_code=502, detail="Polygon request failed") from exc
 
-    # Tradier returns {"options": {"option": [...]}} or may return a single option
-    opts = payload.get("options") or {}
-    items = opts.get("option")
-    if items is None:
-        return {"symbol": symbol.upper(), "options": []}
+    if payload.get("status") == "ERROR":
+        raise HTTPException(status_code=502, detail=payload.get("error", "Polygon returned an error"))
 
-    if isinstance(items, dict):
-        items = [items]
-
+    items = payload.get("results") or []
     simplified = []
-    for o in items:
+    for item in items:
+        details = item.get("details") or {}
+        day = item.get("day") or {}
+        last_quote = item.get("last_quote") or {}
+        last_trade = item.get("last_trade") or {}
+        greeks = item.get("greeks") or {}
+        underlying = item.get("underlying_asset") or {}
+
         simplified.append(
             {
-                "symbol": o.get("symbol"),
-                "expiration": o.get("expiration_date") or o.get("expiration"),
-                "strike": float(o.get("strike", 0)),
-                "type": o.get("option_type") or o.get("type"),
-                "bid": float(o.get("bid", 0) or 0),
-                "ask": float(o.get("ask", 0) or 0),
-                "last": float(o.get("last", 0) or 0),
-                "volume": int(o.get("volume", 0) or 0),
+                "symbol": details.get("ticker") or item.get("ticker"),
+                "expiration": details.get("expiration_date"),
+                "strike": _safe_float(details.get("strike_price")),
+                "type": details.get("contract_type"),
+                "bid": _safe_float(last_quote.get("bid")),
+                "ask": _safe_float(last_quote.get("ask")),
+                "last": _safe_float(last_trade.get("price")),
+                "volume": int(day.get("volume", 0) or 0),
+                "open_interest": int(item.get("open_interest", 0) or 0),
+                "implied_volatility": _safe_float(greeks.get("implied_volatility")),
+                "delta": _safe_float(greeks.get("delta")),
+                "gamma": _safe_float(greeks.get("gamma")),
+                "theta": _safe_float(greeks.get("theta")),
+                "vega": _safe_float(greeks.get("vega")),
+                "rho": _safe_float(greeks.get("rho")),
+                "underlying_price": _safe_float(underlying.get("price")),
             }
         )
 
     return {"symbol": symbol.upper(), "options": simplified}
 
 
-app = FastAPI(title="Options Pricing Visualizer API", version="0.1.0")
+app = FastAPI(title="Options Pricing Visualizer API", version="0.136.1")
 
 # Configure CORS origins from env.
 raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173")
@@ -290,12 +319,12 @@ def history(params: HistoryParams) -> dict[str, object]:
     if not symbol:
         raise HTTPException(status_code=400, detail="symbol is required")
 
-    return _fetch_alpha_vantage_history(symbol, outputsize)
+    return _fetch_polygon_history(symbol, outputsize)
 
 
 @app.post("/api/options")
 def options(params: OptionsParams) -> dict[str, object]:
-    """Fetch option chains for a symbol (Tradier).
+    """Fetch option chains for a symbol (Polygon).
 
     Returns a list of options with key fields for display.
     """
@@ -303,4 +332,4 @@ def options(params: OptionsParams) -> dict[str, object]:
     if not symbol:
         raise HTTPException(status_code=400, detail="symbol is required")
 
-    return _fetch_tradier_options(symbol, expiration=params.expiration)
+    return _fetch_polygon_options(symbol, expiration=params.expiration)
