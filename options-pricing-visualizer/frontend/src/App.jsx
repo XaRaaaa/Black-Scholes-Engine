@@ -528,10 +528,10 @@ export default function App() {
       <header className="hero">
         <div>
           <span className="eyebrow">Options Pricing Visualizer</span>
-          <h1>Options pricing built for exploration.</h1>
+          <h1>Explore Options pricing models</h1>
           <p>
-            Tune inputs, switch between Black-Scholes and Monte Carlo, and view
-            Greeks or price convergence with D3.
+            Change inputs, switch between Black-Scholes and Monte Carlo, and view
+            graphs.
           </p>
         </div>
         <div className="hero-card">
@@ -695,6 +695,9 @@ export default function App() {
           )}
         </div>
       </section>
+      <footer className="disclaimer" style={{ padding: "18px 20px", fontSize: "0.85rem", color: "#666" }}>
+        This tool is for informational and educational purposes only. It estimates option values using Black‑Scholes and Monte Carlo models and is not financial advice. Calculations are theoretical and omit real‑world factors; consult a licensed financial advisor before investing.
+      </footer>
 
       <section className="panel stats">
         <div className="panel-header">
