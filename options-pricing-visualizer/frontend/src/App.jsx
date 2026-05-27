@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { fetchCurve, fetchHistory, fetchPrice } from "./api";
 import GreekChart from "./components/GreekChart";
 import MonteCarloConvergence from "./components/MonteCarloConvergence";
@@ -13,7 +13,7 @@ const greekLabels = {
   gamma: "Gamma",
   vega: "Vega",
   theta: "Theta",
-  rho: "Rho"
+  rho: "Rho",
 };
 
 const defaultParams = {
@@ -27,18 +27,18 @@ const defaultParams = {
   method: "blackscholes",
   num_paths: "100000",
   seed: "0",
-  antithetic: "true"
+  antithetic: "true",
 };
 
 const defaultRange = {
   min: "60",
   max: "140",
-  points: "80"
+  points: "80",
 };
 
 const defaultHistory = {
   symbol: "AAPL",
-  outputsize: "compact"
+  outputsize: "compact",
 };
 
 const MIN_PATHS = 100;
@@ -67,18 +67,18 @@ function readUrlSettings() {
       method: params.get("method") || defaultParams.method,
       num_paths: params.get("num_paths") || defaultParams.num_paths,
       seed: params.get("seed") || defaultParams.seed,
-      antithetic: params.get("antithetic") || defaultParams.antithetic
+      antithetic: params.get("antithetic") || defaultParams.antithetic,
     },
     range: {
       min: params.get("rangeMin") || defaultRange.min,
       max: params.get("rangeMax") || defaultRange.max,
-      points: params.get("rangePoints") || defaultRange.points
+      points: params.get("rangePoints") || defaultRange.points,
     },
     history: {
       symbol: params.get("symbol") || defaultHistory.symbol,
-      outputsize: params.get("outputsize") || defaultHistory.outputsize
+      outputsize: params.get("outputsize") || defaultHistory.outputsize,
     },
-    greek: params.get("greek") || "delta"
+    greek: params.get("greek") || "delta",
   };
 }
 
@@ -145,7 +145,7 @@ const inputHelp = {
   dividend: "Continuous dividend yield.",
   optionType: "Calls benefit from rising prices; puts benefit from falling prices.",
   symbol: "Ticker symbol for historical prices.",
-  outputsize: "Recent history or the full available series."
+  outputsize: "Recent history or the full available series.",
 };
 
 const outputHelp = {
@@ -158,7 +158,7 @@ const outputHelp = {
   livePrice: "Live option price for the current inputs.",
   greekCurve: "How the selected metric changes across the spot range.",
   historical: "Historical prices for the selected symbol.",
-  range: "Spot range used for the curve."
+  range: "Spot range used for the curve.",
 };
 
 function InfoBadge({ text, label }) {
@@ -184,6 +184,11 @@ function toInt(value, fallback) {
 
 function clampInt(value, min, max, fallback) {
   const num = toInt(value, fallback);
+  return Math.min(max, Math.max(min, num));
+}
+
+function clampNumber(value, min, max, fallback) {
+  const num = toNumber(value, fallback);
   return Math.min(max, Math.max(min, num));
 }
 
@@ -248,12 +253,14 @@ function buildQueryString(settings) {
 
 export default function App() {
   const initialSettings = useMemo(() => {
-    return readUrlSettings() || loadStoredSettings() || {
-      params: defaultParams,
-      range: defaultRange,
-      history: defaultHistory,
-      greek: "delta"
-    };
+    return (
+      readUrlSettings() || loadStoredSettings() || {
+        params: defaultParams,
+        range: defaultRange,
+        history: defaultHistory,
+        greek: "delta",
+      }
+    );
   }, []);
 
   const [params, setParams] = useState(initialSettings.params);
@@ -268,7 +275,7 @@ export default function App() {
   const [baselineSnapshot, setBaselineSnapshot] = useState(() => loadBaselineSnapshot());
   const [shareState, setShareState] = useState({ copied: false, exported: false });
 
-  const isMonteCarlo = ["montecarlo", "mc"].includes(params.method);
+  const isMonteCarlo = ["montecarlo", "mc"].includes((params.method || "").toString().toLowerCase());
 
   const updateParam = (field) => (event) => {
     setParams((prev) => ({ ...prev, [field]: event.target.value }));
@@ -288,18 +295,25 @@ export default function App() {
     const seed = Math.max(0, toInt(params.seed, 0));
     const antithetic = toBool(params.antithetic, true);
 
+    const spotVal = Math.max(0.01, toNumber(params.spot, 100));
+    const strikeVal = Math.max(0.01, toNumber(params.strike, 100));
+    const rateVal = clampNumber(params.rate, -1, 1, 0.05);
+    const volVal = Math.max(0.000001, toNumber(params.vol, 0.2));
+    const timeVal = Math.max(0.000001, toNumber(params.time, 1));
+    const divVal = clampNumber(params.dividend, -1, 1, 0);
+
     return {
-      spot: toNumber(params.spot, 100),
-      strike: toNumber(params.strike, 100),
-      rate: toNumber(params.rate, 0.05),
-      vol: toNumber(params.vol, 0.2),
-      time: toNumber(params.time, 1),
-      dividend: toNumber(params.dividend, 0),
+      spot: spotVal,
+      strike: strikeVal,
+      rate: rateVal,
+      vol: volVal,
+      time: timeVal,
+      dividend: divVal,
       option_type: params.optionType,
       method,
       num_paths: numPaths,
       seed,
-      antithetic
+      antithetic,
     };
   }, [params]);
 
@@ -315,14 +329,14 @@ export default function App() {
       greek,
       spot_min: spotMin,
       spot_max: spotMax,
-      points
+      points,
     };
   }, [payload, range, greek]);
 
   const historyPayload = useMemo(() => {
     return {
       symbol: history.symbol.trim() || defaultHistory.symbol,
-      outputsize: history.outputsize
+      outputsize: history.outputsize,
     };
   }, [history]);
 
@@ -331,7 +345,7 @@ export default function App() {
       params,
       range,
       history,
-      greek
+      greek,
     };
   }, [params, range, history, greek]);
 
@@ -344,12 +358,12 @@ export default function App() {
       field,
       baseline: baselineSnapshot.priceData[field],
       current: priceData[field],
-      delta: Number(priceData[field]) - Number(baselineSnapshot.priceData[field])
+      delta: Number(priceData[field]) - Number(baselineSnapshot.priceData[field]),
     }));
 
     return {
       savedAt: baselineSnapshot.savedAt,
-      fields
+      fields,
     };
   }, [baselineSnapshot, priceData]);
 
@@ -366,12 +380,7 @@ export default function App() {
 
     const rows = ["date,close,adjusted_close,volume"];
     points.forEach((point) => {
-      rows.push([
-        point.date,
-        point.close,
-        point.adjusted_close,
-        point.volume
-      ].join(","));
+      rows.push([point.date, point.close, point.adjusted_close, point.volume].join(","));
     });
 
     const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
@@ -393,7 +402,7 @@ export default function App() {
 
   function exportSettingsJson() {
     const blob = new Blob([JSON.stringify(currentSettings, null, 2)], {
-      type: "application/json;charset=utf-8;"
+      type: "application/json;charset=utf-8;",
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -418,7 +427,7 @@ export default function App() {
     const snapshot = {
       savedAt: new Date().toISOString(),
       settings: currentSettings,
-      priceData
+      priceData,
     };
     setBaselineSnapshot(snapshot);
     saveBaselineSnapshot(snapshot);
@@ -443,10 +452,7 @@ export default function App() {
 
     const timer = setTimeout(async () => {
       try {
-        const [price, curve] = await Promise.all([
-          fetchPrice(payload),
-          fetchCurve(curvePayload)
-        ]);
+        const [price, curve] = await Promise.all([fetchPrice(payload), fetchCurve(curvePayload)]);
 
         if (!isMounted) {
           return;
@@ -489,7 +495,6 @@ export default function App() {
 
         setHistoryData(historyResult.points || []);
 
-        // Auto-fill spot and vol from fetched history when available.
         try {
           const points = historyResult.points || [];
           if (points.length) {
@@ -498,12 +503,13 @@ export default function App() {
             setParams((prev) => ({
               ...prev,
               spot: String(lastPrice ?? prev.spot),
-              vol: String(historyResult.realized_vol ?? prev.vol)
+              vol: String(historyResult.realized_vol ?? prev.vol),
             }));
           }
-        } catch (e) {
+        } catch {
           // keep UI resilient; ignore history-derived updates on error
         }
+
         setHistoryStatus({ loading: false, error: "" });
       } catch (error) {
         if (!isMounted) {
@@ -512,7 +518,7 @@ export default function App() {
 
         setHistoryStatus({
           loading: false,
-          error: error.message || "Failed to fetch historical data"
+          error: error.message || "Failed to fetch historical data",
         });
       }
     }, 500);
@@ -530,7 +536,7 @@ export default function App() {
           <span className="eyebrow">Options Pricing Visualizer</span>
           <h1>Explore Options pricing models</h1>
           <p>
-            Change inputs, switch between Black-Scholes and MC, and view
+            Change inputs, switch between Black-Scholes and Monte Carlo, and view
             graphs.
           </p>
         </div>
@@ -539,19 +545,17 @@ export default function App() {
             <div className="hero-label">Live price</div>
             <InfoBadge label="Live price help" text={outputHelp.livePrice} />
           </div>
-          <div className="hero-value">
-            {priceData ? safeFixed(priceData.price, 4) : "--"}
-          </div>
+          <div className="hero-value">{priceData ? safeFixed(priceData.price, 4) : "--"}</div>
           <div className="hero-subtext">
             {params.optionType.toUpperCase()} - Strike {params.strike}
           </div>
-            {priceData && ["montecarlo", "mc"].includes(priceData.method) && (
-              <div className="hero-meta">
-                <small>
-                  standard error: {safeFixed(priceData.stderr, 6)} • paths: {priceData.num_paths}
-                </small>
-              </div>
-            )}
+          {priceData && ["montecarlo", "mc"].includes((priceData.method || "").toString().toLowerCase()) && (
+            <div className="hero-meta">
+              <small>
+                standard error: {safeFixed(priceData.stderr, 6)} • paths: {priceData.num_paths}
+              </small>
+            </div>
+          )}
         </div>
       </header>
 
@@ -572,6 +576,8 @@ export default function App() {
             </label>
             <input
               type="number"
+              min="0.01"
+              step="0.01"
               value={params.spot}
               onChange={updateParam("spot")}
             />
@@ -584,6 +590,8 @@ export default function App() {
             </label>
             <input
               type="number"
+              min="0.01"
+              step="0.01"
               value={params.strike}
               onChange={updateParam("strike")}
             />
@@ -596,6 +604,8 @@ export default function App() {
             </label>
             <input
               type="number"
+              min="-1"
+              max="1"
               step="0.001"
               value={params.rate}
               onChange={updateParam("rate")}
@@ -609,6 +619,7 @@ export default function App() {
             </label>
             <input
               type="number"
+              min="0.000001"
               step="0.001"
               value={params.vol}
               onChange={updateParam("vol")}
@@ -622,6 +633,7 @@ export default function App() {
             </label>
             <input
               type="number"
+              min="0.000001"
               step="0.01"
               value={params.time}
               onChange={updateParam("time")}
@@ -635,6 +647,8 @@ export default function App() {
             </label>
             <input
               type="number"
+              min="-1"
+              max="1"
               step="0.001"
               value={params.dividend}
               onChange={updateParam("dividend")}
@@ -646,7 +660,10 @@ export default function App() {
               <span>Option type</span>
               <InfoBadge text={inputHelp.optionType} />
             </label>
-            <select value={params.optionType} onChange={(event) => setParams((prev) => ({ ...prev, optionType: event.target.value }))}>
+            <select
+              value={params.optionType}
+              onChange={(event) => setParams((prev) => ({ ...prev, optionType: event.target.value }))}
+            >
               <option value="call">European Call</option>
               <option value="put">European Put</option>
             </select>
@@ -655,11 +672,11 @@ export default function App() {
           <div className="field">
             <label>
               <span>Method</span>
-              <InfoBadge text="Choose Black-Scholes or MC." />
+              <InfoBadge text="Choose Black-Scholes or Monte Carlo." />
             </label>
             <select value={params.method} onChange={updateParam("method")}>
               <option value="blackscholes">Black-Scholes</option>
-              <option value="montecarlo">MC</option>
+              <option value="montecarlo">Monte Carlo</option>
             </select>
           </div>
 
@@ -667,10 +684,17 @@ export default function App() {
             <>
               <div className="field">
                 <label>
-                  <span>MC paths</span>
+                  <span>Monte Carlo paths</span>
                   <InfoBadge text="Number of simulated paths." />
                 </label>
-                <input type="number" value={params.num_paths} onChange={updateParam("num_paths")} />
+                <input
+                  type="number"
+                  min="100"
+                  max="2000000"
+                  step="1"
+                  value={params.num_paths}
+                  onChange={updateParam("num_paths")}
+                />
               </div>
 
               <div className="field">
@@ -678,7 +702,13 @@ export default function App() {
                   <span>Seed</span>
                   <InfoBadge text="Random seed." />
                 </label>
-                <input type="number" value={params.seed} onChange={updateParam("seed")} />
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={params.seed}
+                  onChange={updateParam("seed")}
+                />
               </div>
 
               <div className="field">
@@ -695,15 +725,19 @@ export default function App() {
           )}
         </div>
       </section>
+
       <footer className="disclaimer" style={{ padding: "18px 20px", fontSize: "0.85rem", color: "#666" }}>
-        This tool is for informational and educational purposes only. It estimates option values using Black‑Scholes and MC models and is not financial advice. Calculations are theoretical and omit real‑world factors; consult a licensed financial advisor before investing.
+        This tool is for informational and educational purposes only. It estimates option values using Black-Scholes and Monte Carlo models and is not financial advice. Calculations are theoretical and omit real-world factors; consult a licensed financial advisor before investing.
       </footer>
 
       <section className="panel stats">
         <div className="panel-header">
           <div className="header-title">
             <h2>Greeks</h2>
-            <InfoBadge label="Greeks help" text="The Greek outputs measure how the option reacts to changes in price, volatility, time, and rates." />
+            <InfoBadge
+              label="Greeks help"
+              text="The Greek outputs measure how the option reacts to changes in price, volatility, time, and rates."
+            />
           </div>
           <div className="pill">Per unit change</div>
         </div>
@@ -746,9 +780,7 @@ export default function App() {
               <div className="compare-card" key={item.field}>
                 <div className="contract-label">{item.field}</div>
                 <div className="contract-value">{formatSigned(item.current, item.field === "price" ? 4 : 6)}</div>
-                <div className="contract-meta">
-                  Saved {formatSigned(item.baseline, item.field === "price" ? 4 : 6)}
-                </div>
+                <div className="contract-meta">Saved {formatSigned(item.baseline, item.field === "price" ? 4 : 6)}</div>
               </div>
             ))}
           </div>
@@ -786,6 +818,8 @@ export default function App() {
                     </label>
                     <input
                       type="number"
+                      min="0.01"
+                      step="0.01"
                       value={range.min}
                       onChange={updateRange("min")}
                     />
@@ -798,6 +832,8 @@ export default function App() {
                     </label>
                     <input
                       type="number"
+                      min="0.01"
+                      step="0.01"
                       value={range.max}
                       onChange={updateRange("max")}
                     />
@@ -826,21 +862,14 @@ export default function App() {
                 <span>Symbol</span>
                 <InfoBadge text={inputHelp.symbol} />
               </label>
-              <input
-                type="text"
-                value={history.symbol}
-                onChange={updateHistory("symbol")}
-              />
+              <input type="text" value={history.symbol} onChange={updateHistory("symbol")} />
             </div>
             <div className="field small">
               <label>
                 <span>Timeframe</span>
                 <InfoBadge text={inputHelp.outputsize} />
               </label>
-              <select
-                value={history.outputsize}
-                onChange={updateHistory("outputsize")}
-              >
+              <select value={history.outputsize} onChange={updateHistory("outputsize")}>
                 <option value="compact">Compact</option>
                 <option value="full">Full</option>
               </select>
@@ -848,18 +877,10 @@ export default function App() {
             <div className="pill">
               {historyStatus.loading ? "Loading..." : historyStatus.error || `Monthly points: ${historyData.length}`}
             </div>
-            <button
-              type="button"
-              className="export-button"
-              onClick={copyShareLink}
-            >
+            <button type="button" className="export-button" onClick={copyShareLink}>
               {shareState.copied ? "Link copied" : "Copy share link"}
             </button>
-            <button
-              type="button"
-              className="export-button"
-              onClick={exportSettingsJson}
-            >
+            <button type="button" className="export-button" onClick={exportSettingsJson}>
               {shareState.exported ? "JSON exported" : "Export JSON"}
             </button>
             <button
